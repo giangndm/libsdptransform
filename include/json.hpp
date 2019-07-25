@@ -56,6 +56,83 @@ SOFTWARE.
 #include <string> // string
 #include <vector> // vector
 
+#include <string>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+
+#ifndef errno
+extern int * __error(void);
+#define errno (*__error())
+#endif
+
+#ifdef OPENWRT_BUILD
+namespace std {
+    template <typename T>
+    inline std::string to_string(T val) {
+        std::stringstream stream;
+        stream << val;
+        return stream.str();
+    }
+
+    inline int stoi(std::string str, size_t* pos = 0){
+        const char* start = str.c_str();
+        char** end;
+        int res = strtol(start, end, 10);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline long stol(std::string str, size_t* pos = 0){
+        const char* start = str.c_str();
+        char** end;
+        long res = strtol(start, end, 10);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline long stoul(std::string str, size_t* pos = 0){
+        const char* start = str.c_str();
+        char** end;
+        long res = strtoul(start, end, 10);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline long long stoll(std::string str, size_t* pos = 0){
+        const char* start = str.c_str();
+        char** end;
+        long long res = strtoll(start, end, 10);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline float stof( const std::string& str, std::size_t* pos = 0 ) {
+        const char* start = str.c_str();
+        char** end;
+        float res = strtof(start, end);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline double stod( const std::string& str, std::size_t* pos = 0 ) {
+        const char* start = str.c_str();
+        char** end;
+        double res = strtod(start, end);
+        *pos = *end - start;
+        return res;
+    }
+
+    inline long double stold( const std::string& str, std::size_t* pos = 0 ) {
+        const char* start = str.c_str();
+        char** end;
+        long double res = strtold(start, end);
+        *pos = *end - start;
+        return res;
+    }
+}
+#endif
+
 /*!
 @brief namespace for Niels Lohmann
 @see https://github.com/nlohmann
@@ -3382,7 +3459,7 @@ class lexer
 
     static void strtof(float& f, const char* str, char** endptr) noexcept
     {
-        f = std::strtof(str, endptr);
+        f = strtof(str, endptr);
     }
 
     static void strtof(double& f, const char* str, char** endptr) noexcept
@@ -3392,7 +3469,7 @@ class lexer
 
     static void strtof(long double& f, const char* str, char** endptr) noexcept
     {
-        f = std::strtold(str, endptr);
+        f = strtold(str, endptr);
     }
 
     /*!
@@ -3723,7 +3800,7 @@ scan_number_done:
         // try to parse integers first and fall back to floats
         if (number_type == token_type::value_unsigned)
         {
-            const auto x = std::strtoull(token_buffer.data(), &endptr, 10);
+            const auto x = strtoull(token_buffer.data(), &endptr, 10);
 
             // we checked the number format before
             assert(endptr == token_buffer.data() + token_buffer.size());
@@ -3739,7 +3816,7 @@ scan_number_done:
         }
         else if (number_type == token_type::value_integer)
         {
-            const auto x = std::strtoll(token_buffer.data(), &endptr, 10);
+            const auto x = strtoll(token_buffer.data(), &endptr, 10);
 
             // we checked the number format before
             assert(endptr == token_buffer.data() + token_buffer.size());
@@ -3927,7 +4004,7 @@ scan_number_done:
             {
                 // escape control characters
                 char cs[9];
-                (std::snprintf)(cs, 9, "<U+%.4X>", static_cast<unsigned char>(c));
+                (snprintf)(cs, 9, "<U+%.4X>", static_cast<unsigned char>(c));
                 result += cs;
             }
             else
@@ -6717,7 +6794,7 @@ class binary_reader
             default: // anything else not supported (yet)
             {
                 char cr[3];
-                (std::snprintf)(cr, sizeof(cr), "%.2hhX", static_cast<unsigned char>(element_type));
+                (snprintf)(cr, sizeof(cr), "%.2hhX", static_cast<unsigned char>(element_type));
                 return sax->parse_error(element_type_parse_position, std::string(cr), parse_error::create(114, element_type_parse_position, "Unsupported BSON record type 0x" + std::string(cr)));
             }
         }
@@ -8374,7 +8451,7 @@ class binary_reader
     std::string get_token_string() const
     {
         char cr[3];
-        (std::snprintf)(cr, 3, "%.2hhX", static_cast<unsigned char>(current));
+        (snprintf)(cr, 3, "%.2hhX", static_cast<unsigned char>(current));
         return std::string{cr};
     }
 
@@ -10693,7 +10770,7 @@ void grisu2(char* buf, int& len, int& decimal_exponent, FloatType value)
     // On the other hand, the documentation for 'std::to_chars' requires that "parsing the
     // representation using the corresponding std::from_chars function recovers value exactly". That
     // indicates that single precision floating-point numbers should be recovered using
-    // 'std::strtof'.
+    // 'strtof'.
     //
     // NB: If the neighbors are computed for single-precision numbers, there is a single float
     //     (7.0385307e-26f) which can't be recovered using strtod. The resulting double precision
@@ -11255,13 +11332,13 @@ class serializer
                             {
                                 if (codepoint <= 0xFFFF)
                                 {
-                                    (std::snprintf)(string_buffer.data() + bytes, 7, "\\u%04x",
+                                    (snprintf)(string_buffer.data() + bytes, 7, "\\u%04x",
                                                     static_cast<uint16_t>(codepoint));
                                     bytes += 6;
                                 }
                                 else
                                 {
-                                    (std::snprintf)(string_buffer.data() + bytes, 13, "\\u%04x\\u%04x",
+                                    (snprintf)(string_buffer.data() + bytes, 13, "\\u%04x\\u%04x",
                                                     static_cast<uint16_t>(0xD7C0 + (codepoint >> 10)),
                                                     static_cast<uint16_t>(0xDC00 + (codepoint & 0x3FF)));
                                     bytes += 12;
@@ -11299,7 +11376,7 @@ class serializer
                         case error_handler_t::strict:
                         {
                             std::string sn(3, '\0');
-                            (std::snprintf)(&sn[0], sn.size(), "%.2X", byte);
+                            (snprintf)(&sn[0], sn.size(), "%.2X", byte);
                             JSON_THROW(type_error::create(316, "invalid UTF-8 byte at index " + std::to_string(i) + ": 0x" + sn));
                         }
 
@@ -11380,7 +11457,7 @@ class serializer
                 case error_handler_t::strict:
                 {
                     std::string sn(3, '\0');
-                    (std::snprintf)(&sn[0], sn.size(), "%.2X", static_cast<uint8_t>(s.back()));
+                    (snprintf)(&sn[0], sn.size(), "%.2X", static_cast<uint8_t>(s.back()));
                     JSON_THROW(type_error::create(316, "incomplete UTF-8 string; last byte: 0x" + sn));
                 }
 
@@ -11499,7 +11576,7 @@ class serializer
         static constexpr auto d = std::numeric_limits<number_float_t>::max_digits10;
 
         // the actual conversion
-        std::ptrdiff_t len = (std::snprintf)(number_buffer.data(), number_buffer.size(), "%.*g", d, x);
+        std::ptrdiff_t len = (snprintf)(number_buffer.data(), number_buffer.size(), "%.*g", d, x);
 
         // negative value indicates an error
         assert(len > 0);

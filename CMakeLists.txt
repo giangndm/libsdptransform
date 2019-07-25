@@ -10,8 +10,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-std=c++11)
 
 subdirs(test readme-helper)
-
+add_subdirectory(./deps)
 include_directories(${sdptransform_SOURCE_DIR}/include)
+include_directories(${sdptransform_SOURCE_DIR}/deps/re2/)
 
 set(
 	SOURCE_FILES
@@ -27,6 +28,7 @@ set(
 )
 
 add_library(sdptransform STATIC ${SOURCE_FILES} ${HEADER_FILES})
+target_link_libraries(sdptransform re2)
 
 install(TARGETS sdptransform DESTINATION lib)
 install(FILES ${HEADER_FILES} DESTINATION include/sdptransform)

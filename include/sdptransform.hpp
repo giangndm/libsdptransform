@@ -5,10 +5,13 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <regex>
+//#include <regex>
 #include <functional>
 
 using json = nlohmann::json;
+namespace re2 {
+	class RE2;
+}
 
 namespace sdptransform
 {
@@ -18,7 +21,7 @@ namespace sdptransform
 		{
 			std::string name;
 			std::string push;
-			std::regex reg;
+			re2::RE2* reg;
 			std::vector<std::string> names;
 			std::vector<char> types;
 			std::string format;
