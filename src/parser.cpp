@@ -5,13 +5,21 @@
 #include <ios>       // std::noskipws
 #include <algorithm> // std::find_if()
 #include <cctype>    // std::isspace()
+#include <re2/re2.h>
 
 namespace sdptransform
 {
-	void parseReg(const grammar::Rule& rule, json& location, const std::string& content);
+	void parseReg(
+			std::string* match,
+			size_t match_size,
+			const grammar::Rule& rule,
+			json& location,
+			const std::string& content
+	);
 
 	void attachProperties(
-		const std::smatch& match,
+		std::string* match,
+		size_t match_size,
 		json& location,
 		const std::vector<std::string>& names,
 		const std::string& rawName,
@@ -32,7 +40,8 @@ namespace sdptransform
 
 	json parse(const std::string& sdp)
 	{
-		static const std::regex ValidLineRegex("^([a-z])=(.*)");
+		printf("Parsing sdp: %s\n", sdp.c_str());
+		static const RE2 ValidLineRegex("^([a-z])=(.*)");
 
 		json session = json::object();
 		std::stringstream sdpstream(sdp);
@@ -47,8 +56,12 @@ namespace sdptransform
 				line.pop_back();
 
 			// Ensure it's a valid SDP line.
-			if (!std::regex_search(line, ValidLineRegex))
+			std::string s1;
+			std::string s2;
+			if (!RE2::FullMatch(line, ValidLineRegex, &s1, &s2)) {
+				printf("Reject %s for ^([a-z])=(.*)\n", line.c_str());
 				continue;
+			}
 
 			char type = line[0];
 			std::string content = line.substr(2);
@@ -72,16 +85,35 @@ namespace sdptransform
 				continue;
 
 			auto& rules = it->second;
-
-			for (size_t j = 0; j < rules.size(); ++j)
-			{
+			bool is_passed = false;
+			for (size_t j = 0; j < rules.size(); ++j) {
 				auto& rule = rules[j];
+				if (!RE2::FullMatch(content, *rule.reg))
+					continue;
 
-				if (std::regex_search(content, rule.reg))
+                int args_len = rule.types.size();
+				std::string _str_args[args_len];
+				RE2::Arg _args[args_len];
+				RE2::Arg* args[args_len];
+				for(int i = 0; i < args_len; i++) {
+					_args[i] = &_str_args[i];
+					args[i] = &_args[i];
+				}
+				if (RE2::PartialMatchN(content, *rule.reg, args, args_len))
 				{
-					parseReg(rule, *location, content);
-
+					printf("Parse (%d - %s) %s %s\n", args_len, rule.format.c_str(), rule.reg->pattern().c_str(), content.c_str());
+					parseReg(_str_args, args_len, rule, *location, content);
+					is_passed = true;
 					break;
+				} else {
+					printf("Why happend for (%d - %s) %s %s\n", args_len, rule.format.c_str(), rule.reg->pattern().c_str(), content.c_str());
+				}
+			}
+			if(is_passed == false) {
+				printf("invaild |%s|\n", content.c_str());
+				for (size_t j = 0; j < rules.size(); ++j) {
+					auto &rule = rules[j];
+					printf(" invaild match(%s) |%s|\n", rule.format.c_str(), rule.reg->pattern().c_str());
 				}
 			}
 		}
@@ -205,7 +237,7 @@ namespace sdptransform
 		return arr;
 	}
 
-	void parseReg(const grammar::Rule& rule, json& location, const std::string& content)
+	void parseReg(std::string* match, size_t match_size, const grammar::Rule& rule, json& location, const std::string& content)
 	{
 		bool needsBlank = !rule.name.empty() && !rule.names.empty();
 
@@ -218,10 +250,6 @@ namespace sdptransform
 			location[rule.name] = json::object();
 		}
 
-		std::smatch match;
-
-		std::regex_search(content, match, rule.reg);
-
 		json object = json::object();
 		json& keyLocation = !rule.push.empty()
 			// Blank object that will be pushed.
@@ -231,14 +259,15 @@ namespace sdptransform
 				? location[rule.name]
 				: location;
 
-		attachProperties(match, keyLocation, rule.names, rule.name, rule.types);
+		attachProperties(match, match_size, keyLocation, rule.names, rule.name, rule.types);
 
 		if (!rule.push.empty())
 			location[rule.push].push_back(keyLocation);
 	}
 
 	void attachProperties(
-		const std::smatch& match,
+		std::string* match,
+		size_t match_size,
 		json& location,
 		const std::vector<std::string>& names,
 		const std::string& rawName,
@@ -247,15 +276,17 @@ namespace sdptransform
 	{
 		if (!rawName.empty() && names.empty())
 		{
-			location[rawName] = toType(match[1].str(), types[0]);
+			printf("attach0 %s %s %c\n", rawName.c_str(), match[0].c_str(), types[0]);
+			location[rawName] = toType(match[0], types[0]);
 		}
 		else
 		{
 			for (size_t i = 0; i < names.size(); ++i)
 			{
-				if (i + 1 < match.size() && !match[i + 1].str().empty())
+				if (i < match_size && !match[i].empty())
 				{
-					location[names[i]] = toType(match[i + 1].str(), types[i]);
+					printf("attach0 %s %s %c\n", names[i].c_str(), match[i].c_str(), types[i]);
+					location[names[i]] = toType(match[i], types[i]);
 				}
 			}
 		}
@@ -294,28 +325,12 @@ namespace sdptransform
 
 			case 'd':
 			{
-				std::istringstream iss(str);
-				long long ll;
-
-				iss >> std::noskipws >> ll;
-
-				if (iss.eof() && !iss.fail())
-					return std::stoll(str);
-				else
-					return 0;
+				return atoi(str.c_str());
 			}
 
 			case 'f':
 			{
-				std::istringstream iss(str);
-				double d;
-
-				iss >> std::noskipws >> d;
-
-				if (iss.eof() && !iss.fail())
-					return std::stod(str);
-				else
-					return 0.0f;
+				return atof(str.c_str());
 			}
 		}
 
@@ -340,13 +355,11 @@ namespace sdptransform
 
 	void insertParam(json& o, const std::string& str)
 	{
-		static const std::regex KeyValueRegex("^\\s*([^= ]+)(?:\\s*=\\s*([^ ]+))?$");
+		static const RE2 KeyValueRegex("^\\s*([^= ]+)(?:\\s*=\\s*([^ ]+))?$");
 
-		std::smatch match;
-
-		std::regex_match(str, match, KeyValueRegex);
-
-		if (match.size() == 0)
+		std::string p0;
+		std::string p1;
+		if (!RE2::FullMatch(str, KeyValueRegex, &p0, &p1))
 			return;
 
 		// NOTE: match[2] maybe not exist in the given str if the param has no
@@ -355,14 +368,14 @@ namespace sdptransform
 
 		char type;
 
-		if (isInt(match[2].str()))
+		if (isInt(p1))
 			type = 'd';
-		else if (isFloat(match[2].str()))
+		else if (isFloat(p1))
 			type = 'f';
 		else
 			type = 's';
 
 		// Insert into the given JSON object.
-		o[match[1].str()] = toType(match[2].str(), type);
+		o[p0] = toType(p1, type);
 	}
 }

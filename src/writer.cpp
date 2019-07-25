@@ -2,6 +2,7 @@
 #include <cstddef>   // size_t
 #include <sstream>   // std::stringstream
 #include <stdexcept>
+#include <re2/re2.h>
 
 namespace sdptransform
 {
@@ -115,8 +116,6 @@ namespace sdptransform
 		const json& location
 	)
 	{
-		static const std::regex FormatRegex("%[sdv%]");
-
 		const std::string format = rule.format.empty()
 			? rule.formatFunc(
 					!rule.push.empty()
@@ -161,45 +160,59 @@ namespace sdptransform
 		}
 
 		std::stringstream linestream;
-		size_t i = 0;
+		size_t arg_i = 0;
 		size_t len = args.size();
 
 		linestream << type << "=";
 
-		for(
-			auto it = std::sregex_iterator(format.begin(), format.end(), FormatRegex);
-			it != std::sregex_iterator();
-		  ++it
-		 )
-		{
-			const std::smatch& match = *it;
-			const std::string& str = match.str();
-
-			if (i >= len)
-			{
-				linestream << str;
+		const char* fomat_char = format.c_str();
+		//printf("Print with format(%d): %s\n", len, format.c_str());
+		for(int c_i = 0; c_i < format.length(); c_i++) {
+			if(c_i == format.length() - 1 || arg_i >= len) {
+				linestream << fomat_char[c_i];
+				continue;
 			}
-			else
-			{
-				auto& arg = args[i];
-				i++;
+			switch (fomat_char[c_i]) {
+				case '%' : {
+					switch (fomat_char[c_i + 1]) {
+						case '%' : {
+							linestream << "%%";
+							c_i++;
+							break;
+						}
+						case 's' :
+						case 'd' : {
+							assert(arg_i < len);
+							auto& arg = args[arg_i];
 
-				linestream << match.prefix();
+							if (arg.is_string()) {
+								linestream << arg.get<std::string>();
+								//printf("  apend format %c: %s\n", fomat_char[c_i+1], arg.get<std::string>().c_str());
+							} else {
+								linestream << arg.get<int64_t>();
+								//printf("  apend format %c: %lld\n", fomat_char[c_i+1], arg.get<int64_t >());
+							}
 
-				if (str == "%%")
-				{
-					linestream << "%";
+							arg_i++;
+							c_i++;
+							break;
+						}
+						case 'v' : {
+							//printf("  apend format %c with nothing\n", fomat_char[c_i+1]);
+							arg_i++;
+							c_i++;
+							break;
+						}
+						default: {
+							linestream << fomat_char[c_i];
+							break;
+						}
+					}
+					break;
 				}
-				else if (str == "%s" || str == "%d")
-				{
-					if (arg.is_string())
-						linestream << arg.get<std::string>();
-					else
-						linestream << arg;
-				}
-				else if (str == "%v")
-				{
-					// Do nothing.
+				default: {
+					linestream << fomat_char[c_i];
+					break;
 				}
 			}
 		}
