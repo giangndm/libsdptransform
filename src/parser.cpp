@@ -40,7 +40,7 @@ namespace sdptransform
 
 	json parse(const std::string& sdp)
 	{
-		printf("Parsing sdp: %s\n", sdp.c_str());
+		//printf("Parsing sdp: %s\n", sdp.c_str());
 		static const RE2 ValidLineRegex("^([a-z])=(.*)");
 
 		json session = json::object();
@@ -59,7 +59,7 @@ namespace sdptransform
 			std::string s1;
 			std::string s2;
 			if (!RE2::FullMatch(line, ValidLineRegex, &s1, &s2)) {
-				printf("Reject %s for ^([a-z])=(.*)\n", line.c_str());
+				//printf("Reject %s for ^([a-z])=(.*)\n", line.c_str());
 				continue;
 			}
 
@@ -101,7 +101,7 @@ namespace sdptransform
 				}
 				if (RE2::PartialMatchN(content, *rule.reg, args, args_len))
 				{
-					printf("Parse (%d - %s) %s %s\n", args_len, rule.format.c_str(), rule.reg->pattern().c_str(), content.c_str());
+					//printf("Parse (%d - %s) %s %s\n", args_len, rule.format.c_str(), rule.reg->pattern().c_str(), content.c_str());
 					parseReg(_str_args, args_len, rule, *location, content);
 					is_passed = true;
 					break;
@@ -276,7 +276,7 @@ namespace sdptransform
 	{
 		if (!rawName.empty() && names.empty())
 		{
-			printf("attach0 %s %s %c\n", rawName.c_str(), match[0].c_str(), types[0]);
+			//printf("attach0 %s %s %c\n", rawName.c_str(), match[0].c_str(), types[0]);
 			location[rawName] = toType(match[0], types[0]);
 		}
 		else
@@ -285,7 +285,7 @@ namespace sdptransform
 			{
 				if (i < match_size && !match[i].empty())
 				{
-					printf("attach0 %s %s %c\n", names[i].c_str(), match[i].c_str(), types[i]);
+					//printf("attach0 %s %s %c\n", names[i].c_str(), match[i].c_str(), types[i]);
 					location[names[i]] = toType(match[i], types[i]);
 				}
 			}
