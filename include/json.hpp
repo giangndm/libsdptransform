@@ -3457,17 +3457,17 @@ class lexer
         }
     }
 
-    static void strtof(float& f, const char* str, char** endptr) noexcept
+    static void strtof2(float& f, const char* str, char** endptr) noexcept
     {
         f = strtof(str, endptr);
     }
 
-    static void strtof(double& f, const char* str, char** endptr) noexcept
+    static void strtof2(double& f, const char* str, char** endptr) noexcept
     {
         f = std::strtod(str, endptr);
     }
 
-    static void strtof(long double& f, const char* str, char** endptr) noexcept
+    static void strtof2(long double& f, const char* str, char** endptr) noexcept
     {
         f = strtold(str, endptr);
     }
@@ -3833,7 +3833,7 @@ scan_number_done:
 
         // this code is reached if we parse a floating-point number or if an
         // integer conversion above failed
-        strtof(value_float, token_buffer.data(), &endptr);
+        strtof2(value_float, token_buffer.data(), &endptr);
 
         // we checked the number format before
         assert(endptr == token_buffer.data() + token_buffer.size());
