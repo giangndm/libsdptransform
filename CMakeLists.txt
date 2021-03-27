@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.0)
 
 project(sdptransform VERSION 1.2.4)
 
+include(cmake/CPMSimple.cmake)
+
 # For CMake >= 3.1.
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,11 +26,11 @@ set(
 set(
 	HEADER_FILES
 	include/sdptransform.hpp
-	include/json.hpp
 )
 
 add_library(sdptransform STATIC ${SOURCE_FILES} ${HEADER_FILES})
-target_link_libraries(sdptransform re2)
+target_link_libraries(sdptransform re2 nlohmann_json)
+target_include_directories(sdptransform PUBLIC include/)
 
 install(TARGETS sdptransform DESTINATION lib)
 install(FILES ${HEADER_FILES} DESTINATION include/sdptransform)
